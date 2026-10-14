@@ -4,7 +4,8 @@ import React, { useMemo, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useApp } from "@/context/AppContext";
-import { calculateMatchScore } from "@/lib/matchingAlgorithm";
+import { rankTutors } from "@/lib/matchingAlgorithm";
+import { readSearchFilter, searchFilterQuery } from "@/lib/searchFilters";
 import {
   Star,
   Clock,
@@ -20,27 +21,8 @@ function ResultsContent() {
   const searchParams = useSearchParams();
   const { tutors, searchFilter, openBookingModal } = useApp();
 
-  const querySubject = searchParams.get("subject") || searchFilter.subject || "Microeconomics";
-  const queryTopic = searchParams.get("topic") || searchFilter.topic || "";
-  const queryBudget = Number(searchParams.get("budget")) || searchFilter.maxBudget || 250;
-
-  // Calculate match scores and sort by highest score
-  const matchedTutors = useMemo(() => {
-    const scored = tutors.map((tutor) => {
-      const matchScore = calculateMatchScore(tutor, {
-        ...searchFilter,
-        subject: querySubject,
-        topic: queryTopic,
-        maxBudget: queryBudget,
-      });
-      return {
-        ...tutor,
-        matchScore,
-      };
-    });
-
-    return scored.sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
-  }, [tutors, searchFilter, querySubject, queryTopic, queryBudget]);
+  const filter = useMemo(() => readSearchFilter(new URLSearchParams(searchParams.toString()), searchFilter), [searchParams, searchFilter]);
+  const matchedTutors = useMemo(() => rankTutors(tutors, filter), [tutors, filter]);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 sm:py-10 space-y-6">
@@ -48,7 +30,7 @@ function ResultsContent() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
         <div>
           <Link
-            href="/find-tutor"
+            href={`/find-tutor?${searchFilterQuery(filter)}`}
             className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-brand-navy-700 dark:hover:text-brand-teal-400 mb-1"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
@@ -58,20 +40,29 @@ function ResultsContent() {
             Matching Tutor Results
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-            Sorted by highest academic match score for &ldquo;<strong>{querySubject}</strong>&rdquo;
-            {queryTopic ? ` (${queryTopic})` : ""}
+            {filter.subject ? <>Tutors for &ldquo;<strong>{filter.subject}</strong>&rdquo;{filter.topic ? ` (${filter.topic})` : ""}</> : "Choose a subject to find a tutor."}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="px-3 py-1 rounded-full text-xs font-bold bg-brand-navy-50 text-brand-navy-700 dark:bg-slate-800 dark:text-brand-teal-300 border border-brand-navy-200 dark:border-slate-700">
-            {matchedTutors.length} Qualified Mentors Found
+            {matchedTutors.length} {matchedTutors.length === 1 ? "tutor matches" : "tutors match"}
           </span>
         </div>
       </div>
 
-      {/* Tutor Cards List (matching section 4 specification wireframe) */}
+      <p className="text-sm text-slate-600 dark:text-slate-300">
+        Demo profiles only. Results meet your subject, budget, mode, and availability.
+        Scores compare subject focus, topic, learning style, and preferred days; they don’t predict grades.
+      </p>
+
       <div className="space-y-4">
+        {matchedTutors.length === 0 && (
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6">
+            <h2 className="font-semibold text-slate-900 dark:text-white">No tutors match this search</h2>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Try another subject, a higher budget, or a different day, time, or session mode using Modify Search Filters above.</p>
+          </div>
+        )}
         {matchedTutors.map((tutor) => (
           <div
             key={tutor.id}
@@ -120,11 +111,11 @@ function ResultsContent() {
             {/* Spec Details Section */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 py-4 border-y border-slate-100 dark:border-slate-800/80 text-sm sm:text-base">
               <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                <span className="text-amber-500 font-bold flex items-center gap-1.5">
+                {tutor.reviewCount > 0 ? <><span className="text-amber-500 font-bold flex items-center gap-1.5">
                   <Star className="w-4 h-4 fill-amber-400" />
                   <span>{tutor.rating.toFixed(1)} / 5.0</span>
                 </span>
-                <span className="text-slate-400 font-normal">({tutor.reviewCount} reviews)</span>
+                <span className="text-slate-400 font-normal">({tutor.reviewCount} reviews)</span></> : <span className="text-slate-500">No reviews yet</span>}
               </div>
 
               <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
@@ -144,14 +135,15 @@ function ResultsContent() {
               <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
                 <Clock className="w-4 h-4 text-brand-teal-500 flex-shrink-0" />
                 <span>
-                  Available: {tutor.availabilityDays.slice(0, 3).join(", ")} • 4:00 PM – 7:00 PM
+                  {tutor.availabilityDays.join(", ")} • {tutor.timeslots.join(" / ")}
                 </span>
               </div>
 
               <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 sm:col-span-2">
                 <MapPin className="w-4 h-4 text-brand-teal-500 flex-shrink-0" />
                 <span>
-                  VSU Campus ({tutor.campusLocations[0]?.split("(")[0].trim() || "Library"}) / Online
+                  {tutor.deliveryModes.map(mode => mode === "VSU Campus" && tutor.campusLocations[0]
+                    ? `VSU Campus (${tutor.campusLocations[0].split("(")[0].trim()})` : mode).join(" / ")}
                 </span>
               </div>
             </div>

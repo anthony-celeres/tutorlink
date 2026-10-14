@@ -20,6 +20,15 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid #0052b4;
+  outline-offset: 3px;
+}
+
+.dark :where(a, button, input, select, textarea):focus-visible {
+  outline-color: #31cbbe;
+}
+
 /* Custom subtle scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

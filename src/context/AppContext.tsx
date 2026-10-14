@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Tutor, Booking, ChatMessage, UserRole, Theme, SearchFilter } from "@/types";
 import { INITIAL_TUTORS, INITIAL_BOOKINGS, INITIAL_MESSAGES } from "@/data/mockData";
+import { DEFAULT_SEARCH_FILTER } from "@/lib/searchFilters";
 
 interface CurrentUserInfo {
   id: string;
@@ -62,17 +63,7 @@ interface AppContextType {
   resetAllData: () => void;
 }
 
-const defaultFilter: SearchFilter = {
-  subject: "",
-  topic: "",
-  learningStyles: [],
-  minBudget: 100,
-  maxBudget: 350,
-  days: [],
-  timeslots: [],
-  deliveryMode: "All",
-  sortBy: "match",
-};
+const defaultFilter = DEFAULT_SEARCH_FILTER;
 
 const DEMO_MENTEE: CurrentUserInfo = {
   id: "mentee-1",
@@ -149,7 +140,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       const savedTutors = localStorage.getItem("tutorlink_tutors");
-      if (savedTutors) setTutors(JSON.parse(savedTutors));
+      if (savedTutors) {
+        const storedTutors: Tutor[] = JSON.parse(savedTutors);
+        // Keep locally created profiles, and add new demo profiles for returning visitors.
+        if (Array.isArray(storedTutors)) {
+          const storedIds = new Set(storedTutors.map(tutor => tutor.id));
+          setTutors([...storedTutors, ...INITIAL_TUTORS.filter(tutor => !storedIds.has(tutor.id))]);
+        }
+      }
 
       const savedBookings = localStorage.getItem("tutorlink_bookings");
       if (savedBookings) setBookings(JSON.parse(savedBookings));
