@@ -1,4 +1,5 @@
 import { Tutor, Booking, ChatMessage } from "@/types";
+import { ADDITIONAL_TUTORS } from "./additionalTutors";
 
 export const VSU_SUBJECTS = [
   "Microeconomics",
@@ -20,6 +21,13 @@ export const VSU_SUBJECTS = [
   "Anatomy & Physiology",
   "Technical Writing & Comm 10",
   "Agricultural Economics",
+  "Farm Management",
+  "Agricultural Marketing",
+  "Financial Accounting",
+  "Cost Accounting",
+  "Entrepreneurship",
+  "Business Mathematics",
+  "Business Statistics",
 ];
 
 export const VSU_CAMPUS_LOCATIONS = [
@@ -380,6 +388,7 @@ export const INITIAL_TUTORS: Tutor[] = [
       },
     ],
   },
+  ...ADDITIONAL_TUTORS,
 ];
 
 export const INITIAL_BOOKINGS: Booking[] = [
